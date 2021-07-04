@@ -7,7 +7,7 @@
 
 
 #include "sam.h"
-
+#include "MIDI_Driver.h"
 
 int main(void)
 {
