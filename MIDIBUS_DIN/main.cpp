@@ -40,11 +40,16 @@ int main(void)
 	
 	canMIDI.Set_handler(MIDI_CAN_Handler);
 	dinMIDI.Set_handler(MIDI_DIN_Handler);
+	
+	// LEDs on A17 and A21
 	PORT->Group[0].DIRSET.reg = 1 << 21;
 	PORT->Group[0].DIRSET.reg = 1 << 17;
 	
 	port_pin_set_output_level(17, 0);
 	port_pin_set_output_level(21, 1);
+	
+	// Switch on A19
+	PORT->Group[0].PINCFG[19].bit.INEN = 1;
 	
 	NVIC_EnableIRQ(SERCOM0_IRQn);
 	system_interrupt_enable_global();
