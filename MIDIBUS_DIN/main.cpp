@@ -18,6 +18,8 @@ MCP2517_C CAN(SERCOM0);
 MIDI_C canMIDI(2);
 MIDI_C dinMIDI(1);
 
+uint8_t group = 1;
+
 // Should be randomly generated
 uint32_t midiID = 42;
 
@@ -52,6 +54,8 @@ int main(void)
 	
 	// Switch on A19
 	PORT->Group[0].PINCFG[19].bit.INEN = 1;
+	
+	UART_Init();
 	RTC_Init();
 	
 	NVIC_EnableIRQ(SERCOM0_IRQn);
@@ -94,6 +98,7 @@ void MIDI_DIN_Handler(MIDI1_msg_t* msg){
 	port_pin_set_output_level(17, 1);
 	char buff[4];
 	// Convert to byte stream
+	msg->group = group;
 	uint8_t length = dinMIDI.Encode(buff, msg, 2);
 	
 	// Send CAN message
@@ -104,7 +109,7 @@ void MIDI_DIN_Handler(MIDI1_msg_t* msg){
 	CAN.Transmit_Message(&outMsg, 2);
 	
 	// Thru switch
-	if (PORT->Group[0].IN.reg & (1 << 19)){
+	if ( !(PORT->Group[0].IN.reg & (1 << 19)) ){
 		MIDI_CAN_Handler(msg);
 	}
 }
@@ -128,13 +133,19 @@ void UART_Init(){
 	SERCOM2->USART.CTRLA.bit.SAMPR = 0;
 	SERCOM2->USART.CTRLA.bit.CMODE = 0; // Async
 	SERCOM2->USART.CTRLA.bit.RXPO = 0x2; // pad 2
-	SERCOM2->USART.CTRLA.bit.TXPO = 0x2; // pad 0
-	SERCOM2->USART.INTENSET.bit.RXC = 1;
+	SERCOM2->USART.CTRLA.bit.TXPO = 0x0; // pad 0
 	
+	
+	while(SERCOM2->USART.SYNCBUSY.bit.CTRLB);
 	SERCOM2->USART.BAUD.reg = UART_BAUD_VAL;
 	
+	while(SERCOM2->USART.SYNCBUSY.bit.CTRLB);
 	SERCOM2->USART.CTRLB.reg |= SERCOM_USART_CTRLB_RXEN | SERCOM_USART_CTRLB_TXEN;
 	
+	while(SERCOM2->USART.SYNCBUSY.bit.ENABLE);
+	SERCOM2->USART.INTENSET.bit.RXC = 1;
+	
+	while(SERCOM2->USART.SYNCBUSY.bit.ENABLE);
 	SERCOM2->USART.CTRLA.bit.ENABLE = 1;
 	NVIC_EnableIRQ(SERCOM2_IRQn);
 }
@@ -162,13 +173,13 @@ void SERCOM0_Handler(){
  void SERCOM2_Handler(){
 	if (SERCOM2->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE){
 		if (tx_buff.Count() > 0){
-			SERCOM2->USART.DATA = tx_buff.Read();
+			SERCOM2->USART.DATA.reg = tx_buff.Read();
 		} else {
 			SERCOM2->USART.INTENCLR.reg = SERCOM_USART_INTENCLR_DRE; 
 		}
 	}
-	if (SERCOM2->USART.INTFLAG & SERCOM_USART_INTFLAG_RXC){
-		SERCOM2->USART.INTFLAG = SERCOM_USART_INTFLAG_RXC;
-		rx_buff.Write(SERCOM2->USART.DATA);
+	if (SERCOM2->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_RXC){
+		SERCOM2->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_RXC;
+		rx_buff.Write(SERCOM2->USART.DATA.reg);
 	}
 }
