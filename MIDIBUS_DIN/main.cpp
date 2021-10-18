@@ -5,9 +5,8 @@
  * Author : GuavTek
  */ 
 
-
-#include "sam.h"
-#include "Port.h"
+#include <asf.h>
+#include "samd21g15b.h"
 #include "MIDI_Driver.h"
 
 void WDT_Init();
@@ -19,6 +18,7 @@ RingBuffer<32> rx_buff;
 
 int main(void)
 {
+	system_init();
 	UART_Init();
 	PORT->Group[0].DIRSET.reg = 1 << 21;
 	PORT->Group[0].DIRSET.reg = 1 << 17;
