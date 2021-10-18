@@ -8,6 +8,8 @@
 #include <asf.h>
 #include "samd21g15b.h"
 #include "MIDI_Driver.h"
+#include "RingBuffer.h"
+
 
 void WDT_Init();
 #define UART_BAUDRATE 31250
