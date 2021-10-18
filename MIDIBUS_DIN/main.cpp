@@ -8,8 +8,23 @@
 #include <asf.h>
 #include "samd21g15b.h"
 #include "MIDI_Driver.h"
+#include "MIDI_Config.h"
+#include "SPI.h"
+#include "MCP2517.h"
 #include "RingBuffer.h"
 
+MCP2517_C CAN(SERCOM0);
+
+MIDI_C canMIDI(2);
+MIDI_C dinMIDI(1);
+
+// Should be randomly generated
+uint32_t midiID = 42;
+
+void Receive_CAN(CAN_Rx_msg_t* msg);
+
+void MIDI_CAN_Handler(MIDI1_msg_t* msg);
+void MIDI_DIN_Handler(MIDI1_msg_t* msg);
 
 #define UART_BAUDRATE 31250
 #define UART_BAUD_VAL 65536*(1-16*(UART_BAUDRATE/8000000))
@@ -21,16 +36,69 @@ int main(void)
 {
 	system_init();
 	UART_Init();
+	CAN.Init(CAN_CONF, SPI_CONF);
+	
+	canMIDI.Set_handler(MIDI_CAN_Handler);
+	dinMIDI.Set_handler(MIDI_DIN_Handler);
 	PORT->Group[0].DIRSET.reg = 1 << 21;
 	PORT->Group[0].DIRSET.reg = 1 << 17;
 	
 	port_pin_set_output_level(17, 0);
 	port_pin_set_output_level(21, 1);
 	
+	NVIC_EnableIRQ(SERCOM0_IRQn);
 	system_interrupt_enable_global();
 	
     while (1) {
+		CAN.State_Machine();
+		
+		while (rx_buff.Count() > 0){
+			char temp = rx_buff.Read();
+			dinMIDI.Decode(&temp, 1);
+		}
     }
+}
+
+void Receive_CAN(CAN_Rx_msg_t* msg){
+	uint8_t length = CAN.Get_Data_Length(msg->dataLengthCode);
+	canMIDI.Decode(msg->payload, length);
+}
+
+void MIDI_CAN_Handler(MIDI1_msg_t* msg){
+	// DIN output Activity LED
+	port_pin_set_output_level(21, 1);
+	
+	char buff[4];
+	// Convert to byte stream
+	uint8_t length = canMIDI.Encode(buff, msg, 1);
+	
+	// Add to uart tx buffer, should maybe have overflow protection?
+	for (uint8_t i = 0; i < length; i++){
+		tx_buff.Write(buff[i]);
+	}
+	
+	// Enable UART DRE interrupt
+	SERCOM2->USART.INTENSET.reg = SERCOM_USART_INTENSET_DRE;
+}
+
+void MIDI_DIN_Handler(MIDI1_msg_t* msg){
+	// DIN input activity LED
+	port_pin_set_output_level(17, 1);
+	char buff[4];
+	// Convert to byte stream
+	uint8_t length = dinMIDI.Encode(buff, msg, 2);
+	
+	// Send CAN message
+	CAN_Tx_msg_t outMsg;
+	outMsg.dataLengthCode = CAN.Get_DLC(length);
+	outMsg.id = midiID;
+	outMsg.payload = buff;
+	CAN.Transmit_Message(&outMsg, 2);
+	
+	// Thru switch
+	if (PORT->Group[0].IN.reg & (1 << 19)){
+		MIDI_CAN_Handler(msg);
+	}
 }
 
 void UART_Init(){
@@ -61,6 +129,10 @@ void UART_Init(){
 	
 	SERCOM2->USART.CTRLA.bit.ENABLE = 1;
 	NVIC_EnableIRQ(SERCOM2_IRQn);
+}
+
+void SERCOM0_Handler(){
+	CAN.Handler();
 }
 
  void SERCOM2_Handler(){
