@@ -32,6 +32,8 @@ void UART_Init();
 RingBuffer<250> tx_buff;
 RingBuffer<32> rx_buff;
 
+void RTC_Init();
+
 int main(void)
 {
 	system_init();
@@ -50,6 +52,7 @@ int main(void)
 	
 	// Switch on A19
 	PORT->Group[0].PINCFG[19].bit.INEN = 1;
+	RTC_Init();
 	
 	NVIC_EnableIRQ(SERCOM0_IRQn);
 	system_interrupt_enable_global();
@@ -134,6 +137,22 @@ void UART_Init(){
 	
 	SERCOM2->USART.CTRLA.bit.ENABLE = 1;
 	NVIC_EnableIRQ(SERCOM2_IRQn);
+}
+
+void RTC_Init(){
+	// Enable clock
+	PM->APBAMASK.bit.RTC_ = 1;
+	
+	GCLK->CLKCTRL.reg = GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK1 | GCLK_CLKCTRL_ID_RTC;
+	
+	RTC->MODE0.READREQ.bit.RCONT = 1;
+	
+	RTC->MODE0.COUNT.reg = 0;
+	
+	RTC->MODE0.CTRL.bit.MODE = RTC_MODE0_CTRL_MODE_COUNT32_Val;
+	RTC->MODE0.CTRL.bit.PRESCALER = RTC_MODE0_CTRL_PRESCALER_DIV32_Val;
+	
+	RTC->MODE0.CTRL.bit.ENABLE = 1;
 }
 
 void SERCOM0_Handler(){
