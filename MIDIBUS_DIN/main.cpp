@@ -32,12 +32,6 @@ int main(void)
     }
 }
 
-void WDT_Init(){
-	volatile uint32_t temp;
-	WDT->CTRL.bit.ALWAYSON = 0;
-	temp = 69;
-	WDT->CTRL.bit.ENABLE = 0;
-}void Receive_CAN(CAN_Rx_msg_t* msg){
 void UART_Init(){
 	//Setting the Software Reset bit to 1
 	SERCOM2->USART.CTRLA.bit.SWRST = 1;
