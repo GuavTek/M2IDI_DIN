@@ -11,7 +11,6 @@
 #include "RingBuffer.h"
 
 
-void WDT_Init();
 #define UART_BAUDRATE 31250
 #define UART_BAUD_VAL 65536*(1-16*(UART_BAUDRATE/8000000))
 void UART_Init();
