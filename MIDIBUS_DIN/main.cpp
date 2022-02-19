@@ -181,7 +181,7 @@ void SERCOM0_Handler(){
 	CAN.Handler();
 }
 
- void SERCOM2_Handler(){
+void SERCOM2_Handler(){
 	if (SERCOM2->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_DRE){
 		if (tx_buff.Count() > 0){
 			SERCOM2->USART.DATA.reg = tx_buff.Read();
@@ -191,6 +191,7 @@ void SERCOM0_Handler(){
 	}
 	if (SERCOM2->USART.INTFLAG.reg & SERCOM_USART_INTFLAG_RXC){
 		SERCOM2->USART.INTFLAG.reg = SERCOM_USART_INTFLAG_RXC;
-		rx_buff.Write(SERCOM2->USART.DATA.reg);
+		char temp = SERCOM2->USART.DATA.reg;
+		rx_buff.Write(temp);
 	}
 }
