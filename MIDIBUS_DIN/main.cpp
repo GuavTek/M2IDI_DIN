@@ -72,8 +72,7 @@ int main(void)
 		
 		static uint32_t periodic_timer = 0;
 		if (periodic_timer < RTC->MODE0.COUNT.reg)	{
-			periodic_timer = RTC->MODE0.COUNT.reg + 40000;
-			
+			periodic_timer = RTC->MODE0.COUNT.reg + 30;
 			// Reset activity LEDs
 			port_pin_set_output_level(21, 0);
 			port_pin_set_output_level(17, 0);
