@@ -54,6 +54,7 @@ int main(void)
 	
 	UART_Init();
 	CAN.Init(CAN_CONF, SPI_CONF);
+	CAN.Set_Rx_Callback(Receive_CAN);
 	RTC_Init();
 	
 	canMIDI.Set_handler(MIDI_CAN_Handler);
