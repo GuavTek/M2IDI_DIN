@@ -18,10 +18,8 @@ MCP2517_C CAN(SERCOM0);
 MIDI_C canMIDI(2);
 MIDI_C dinMIDI(1);
 
-uint8_t group = 1;
-
-// Should be randomly generated
-uint32_t midiID = 42;
+uint32_t midiID;
+bool rerollID = false;
 
 void Receive_CAN(CAN_Rx_msg_t* msg);
 
@@ -59,6 +57,10 @@ int main(void)
 	// Switch on A19
 	PORT->Group[0].PINCFG[19].bit.INEN = 1;	
 	
+	// Randomize ID
+	midiID = rand();
+	CAN_FLT2.ID = midiID & 0x7F;
+	
 	UART_Init();
 	CAN.Init(CAN_CONF, SPI_CONF);
 	CAN.Set_Rx_Callback(Receive_CAN);
@@ -78,6 +80,12 @@ int main(void)
 			dinMIDI.Decode(&temp, 1);
 		}
 		
+		if (rerollID){
+			rerollID = false;
+			CAN_FLT2.ID = midiID & 0x7F;
+			CAN.Reconfigure_Filters(1 << 2);
+		}
+		
 		static uint32_t periodic_timer = 0;
 		if (periodic_timer < RTC->MODE0.COUNT.reg)	{
 			periodic_timer = RTC->MODE0.COUNT.reg + 30;
@@ -90,6 +98,11 @@ int main(void)
 
 void Receive_CAN(CAN_Rx_msg_t* msg){
 	uint8_t length = CAN.Get_Data_Length(msg->dataLengthCode);
+	if ((msg->id & 0x7F) == (midiID & 0x7F)){
+		// Received a message using the same ID. Reconfigure.
+		rerollID = true;
+		midiID = rand();
+	}
 	canMIDI.Decode(msg->payload, length);
 }
 
@@ -110,6 +123,7 @@ void MIDI_CAN_Handler(MIDI1_msg_t* msg){
 	SERCOM2->USART.INTENSET.reg = SERCOM_USART_INTENSET_DRE;
 }
 
+// TODO: add support for realtime and data64
 void MIDI_DIN_Handler(MIDI1_msg_t* msg){
 	// DIN input activity LED
 	port_pin_set_output_level(21, 1);
@@ -121,7 +135,7 @@ void MIDI_DIN_Handler(MIDI1_msg_t* msg){
 	// Send CAN message
 	CAN_Tx_msg_t outMsg;
 	outMsg.dataLengthCode = CAN.Get_DLC(length);
-	outMsg.id = midiID;
+	outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::Voice1) << 7);
 	outMsg.payload = buff;
 	CAN.Transmit_Message(&outMsg, 2);
 	

@@ -13,22 +13,34 @@
 #include "MCP2517.h"
 
 // Define CAN filters
+// Regular input. match utility, real-time, MIDI 1.0, and sysex messages with non-extended ID
 CAN_Filter_t CAN_FLT0 = {
 	.enabled = true,
 	.fifoDestination = 1,
 	.extendedID = false,
-	.ID = (0 << 10),
+	.ID = 0,
 	.matchBothIDTypes = false,
-	.maskID = 1 << 10
+	.maskID = 0b11000000000
 };
 
-CAN_Filter_t CAN_FLT1 = {
+// Regular input. match MIDI 2.0 channel messages with non-extended ID
+//CAN_Filter_t CAN_FLT1 = {
+//	.enabled = true,
+//	.fifoDestination = 1,
+//	.extendedID = false,
+//	.ID = 0b10000000000,
+//	.matchBothIDTypes = false,
+//	.maskID = 0b11110000000
+//};
+
+// Targeted input. match CAN id with extended ID
+CAN_Filter_t CAN_FLT2 = {
 	.enabled = true,
 	.fifoDestination = 1,
-	.extendedID = false,
-	.ID = (1 << 10) | 42,
+	.extendedID = true,
+	.ID = 42,
 	.matchBothIDTypes = false,
-	.maskID = 0x7ff
+	.maskID = 0x07f
 };
 
 // Define FIFO configurations
