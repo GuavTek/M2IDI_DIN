@@ -28,6 +28,8 @@ void Receive_CAN(CAN_Rx_msg_t* msg);
 void MIDI_CAN_Handler(MIDI1_msg_t* msg);
 void MIDI_DIN_Handler(MIDI1_msg_t* msg);
 
+uint8_t Get_Group();
+
 #define UART_BAUDRATE 31250
 #define UART_BAUD_VAL 8000000/(16 * UART_BAUDRATE)
 void UART_Init();
@@ -48,6 +50,11 @@ int main(void)
 	port_pin_set_output_level(17, 0);
 	port_pin_set_output_level(21, 0);
 	
+	// DIP switch on PB08-PB11
+	PORT->Group[1].PINCFG[8].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
+	PORT->Group[1].PINCFG[9].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
+	PORT->Group[1].PINCFG[10].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
+	PORT->Group[1].PINCFG[11].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
 	
 	// Switch on A19
 	PORT->Group[0].PINCFG[19].bit.INEN = 1;	
@@ -108,7 +115,7 @@ void MIDI_DIN_Handler(MIDI1_msg_t* msg){
 	port_pin_set_output_level(17, 1);
 	char buff[4];
 	// Convert to byte stream
-	msg->group = group;
+	msg->group = Get_Group();
 	uint8_t length = dinMIDI.Encode(buff, msg, 2);
 	
 	// Send CAN message
@@ -176,6 +183,16 @@ void RTC_Init(){
 	RTC->MODE0.CTRL.bit.PRESCALER = RTC_MODE0_CTRL_PRESCALER_DIV32_Val;
 	
 	RTC->MODE0.CTRL.bit.ENABLE = 1;
+}
+
+uint8_t Get_Group(){
+	uint8_t group;
+	// Get input
+	group = (PORT->Group[1].IN.reg & 0x0F00) >> 8;
+	// Swap bits because switch is connected in reverse
+	group = ((group & 0b1100) >> 2)|((group & 0b0011) << 2);
+	group = ((group & 0b1010) >> 1)|((group & 0b0101) << 1);
+	return group;
 }
 
 void SERCOM0_Handler(){
