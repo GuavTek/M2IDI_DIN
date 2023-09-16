@@ -53,6 +53,7 @@ int main(void)
 	PORT->Group[1].PINCFG[9].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
 	PORT->Group[1].PINCFG[10].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
 	PORT->Group[1].PINCFG[11].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
+	PORT->Group[1].OUTSET.reg = 0x0F00;
 	
 	// Switch on A19
 	PORT->Group[0].PINCFG[19].bit.INEN = 1;	
@@ -107,6 +108,11 @@ void Receive_CAN(CAN_Rx_msg_t* msg){
 }
 
 void MIDI_CAN_Handler(MIDI1_msg_t* msg){
+	// Check if MIDI group matches
+	if (msg->group != Get_Group()){
+		return;
+	}
+	
 	// DIN output Activity LED
 	port_pin_set_output_level(17, 1);
 	
@@ -201,11 +207,13 @@ void RTC_Init(){
 
 uint8_t Get_Group(){
 	uint8_t group;
+	uint8_t temp;
 	// Get input
 	group = (PORT->Group[1].IN.reg & 0x0F00) >> 8;
 	// Swap bits because switch is connected in reverse
-	group = ((group & 0b1100) >> 2)|((group & 0b0011) << 2);
-	group = ((group & 0b1010) >> 1)|((group & 0b0101) << 1);
+	temp = ((group & 0b1100) >> 2)|((group & 0b0011) << 2);
+	group = ((temp & 0b1010) >> 1)|((temp & 0b0101) << 1);
+	group = ~group;
 	return group;
 }
 
