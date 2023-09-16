@@ -95,7 +95,7 @@ void Receive_CAN(CAN_Rx_msg_t* msg){
 
 void MIDI_CAN_Handler(MIDI1_msg_t* msg){
 	// DIN output Activity LED
-	port_pin_set_output_level(21, 1);
+	port_pin_set_output_level(17, 1);
 	
 	char buff[4];
 	// Convert to byte stream
@@ -112,7 +112,7 @@ void MIDI_CAN_Handler(MIDI1_msg_t* msg){
 
 void MIDI_DIN_Handler(MIDI1_msg_t* msg){
 	// DIN input activity LED
-	port_pin_set_output_level(17, 1);
+	port_pin_set_output_level(21, 1);
 	char buff[4];
 	// Convert to byte stream
 	msg->group = Get_Group();
