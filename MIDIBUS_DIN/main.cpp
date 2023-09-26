@@ -116,7 +116,7 @@ void Check_CAN_Int(){
 
 void Receive_CAN(CAN_Rx_msg_t* msg){
 	uint8_t length = CAN.Get_Data_Length(msg->dataLengthCode);
-	if ((msg->id & 0x7F) == (midiID & 0x7F)){
+	if (!msg->extendedID && ((msg->id & 0x7F) == (midiID & 0x7F))){
 		// Received a message using the same ID. Reconfigure.
 		rerollID = true;
 		midiID = rand();
