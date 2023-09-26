@@ -6,7 +6,7 @@ main.cpp
 
 MCP2517_ATSAMD_driver\MCP2517.cpp
 
-MCP2517_ATSAMD_driver\SPI.cpp
+MCP2517_ATSAMD_driver\SPI_SAMD.cpp
 
 MIDI_driver\MIDI_Driver.cpp
 

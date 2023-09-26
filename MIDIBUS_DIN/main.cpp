@@ -1,19 +1,20 @@
 /*
- * MIDIBUS_DIN.cpp
+ * main.cpp
  *
  * Created: 02-Jun-21 23:21:46
  * Author : GuavTek
  */ 
 
 #include <asf.h>
-#include "samd21g15b.h"
+#include <sam.h>
 #include "MIDI_Driver.h"
-#include "MIDI_Config.h"
-#include "SPI.h"
+#include "SPI_SAMD.h"
 #include "MCP2517.h"
+#include "MIDI_Config.h"
 #include "RingBuffer.h"
 
-MCP2517_C CAN(SERCOM0);
+SPI_SAMD_C SPI(SERCOM0);
+MCP2517_C CAN(&SPI);
 
 MIDI_C canMIDI(2);
 MIDI_C dinMIDI(1);
@@ -22,6 +23,7 @@ uint32_t midiID;
 bool rerollID = false;
 
 void Receive_CAN(CAN_Rx_msg_t* msg);
+void Check_CAN_Int();
 
 void MIDI_CAN_Handler(MIDI1_msg_t* msg);
 void MIDI_DIN_Handler(MIDI1_msg_t* msg);
@@ -38,15 +40,22 @@ void RTC_Init();
 
 int main(void)
 {
-	
 	system_init();
-	
+	SPI.Init(SPI_CONF);
 	// LEDs on A17 and A21
 	PORT->Group[0].DIRSET.reg = 1 << 21;
 	PORT->Group[0].DIRSET.reg = 1 << 17;
 	
 	port_pin_set_output_level(17, 0);
 	port_pin_set_output_level(21, 0);
+	
+	// Configure the CAN_INT pin
+	struct port_config intCon = {
+		.direction = PORT_PIN_DIR_INPUT,
+		.input_pull = PORT_PIN_PULL_NONE,
+		.powersave = false
+	};
+	port_pin_set_config(PIN_PA01, &intCon);
 	
 	// DIP switch on PB08-PB11
 	PORT->Group[1].PINCFG[8].reg = PORT_PINCFG_PULLEN | PORT_PINCFG_INEN;
@@ -63,7 +72,7 @@ int main(void)
 	CAN_FLT2.ID = midiID & 0x7F;
 	
 	UART_Init();
-	CAN.Init(CAN_CONF, SPI_CONF);
+	CAN.Init(CAN_CONF);
 	CAN.Set_Rx_Callback(Receive_CAN);
 	RTC_Init();
 	
@@ -74,8 +83,6 @@ int main(void)
 	system_interrupt_enable_global();
 	
     while (1) {
-		CAN.State_Machine();
-		
 		while (rx_buff.Count() > 0){
 			char temp = rx_buff.Read();
 			dinMIDI.Decode(&temp, 1);
@@ -87,6 +94,10 @@ int main(void)
 			CAN.Reconfigure_Filters(1 << 2);
 		}
 		
+		if (CAN.Ready()){
+			Check_CAN_Int();
+		}
+		
 		static uint32_t periodic_timer = 0;
 		if (periodic_timer < RTC->MODE0.COUNT.reg)	{
 			periodic_timer = RTC->MODE0.COUNT.reg + 30;
@@ -95,6 +106,12 @@ int main(void)
 			port_pin_set_output_level(17, 0);
 		}
     }
+}
+
+void Check_CAN_Int(){
+	if (!port_pin_get_input_level(PIN_PA01)){
+		CAN.Check_Rx();
+	}
 }
 
 void Receive_CAN(CAN_Rx_msg_t* msg){
@@ -218,7 +235,7 @@ uint8_t Get_Group(){
 }
 
 void SERCOM0_Handler(){
-	CAN.Handler();
+	SPI.Handler();
 }
 
 void SERCOM2_Handler(){

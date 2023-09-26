@@ -82,15 +82,15 @@ const spi_config_t SPI_CONF = {
 	.dipoVal = 0x0,
 	.dopoVal = 0x1,
 	.speed = 8000000,
-	.pin_cs = PIN_PA09,
 	.pinmux_mosi = PINMUX_PA10C_SERCOM0_PAD2,
 	.pinmux_miso = PINMUX_PA08C_SERCOM0_PAD0,
-	.pinmux_sck = PINMUX_PA11C_SERCOM0_PAD3
+	.pinmux_sck = PINMUX_PA11C_SERCOM0_PAD3,
+	.num_cs = 1,
+	.pin_cs = {PIN_PA09}
 };
 
 const CAN_Config_t CAN_CONF = {
-	.rxMethod = CAN_Config_t::CAN_Rx_Interrupt,
-	.interruptPin = 1,
+	.comSlaveNum = 0,
 	.clkOutDiv = CAN_Config_t::clkOutDiv1,
 	.sysClkDiv = false,
 	.clkDisable = false,
