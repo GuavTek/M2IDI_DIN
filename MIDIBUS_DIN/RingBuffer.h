@@ -9,7 +9,7 @@
 #ifndef RINGBUFFER_H_
 #define RINGBUFFER_H_
 
-template <uint8_t BUFFER_SIZE>
+template <uint16_t BUFFER_SIZE>
 class RingBuffer
 {
 public:
@@ -28,7 +28,7 @@ private:
 };
 
 /*
-template <uint8_t BUFFER_SIZE>
+template <uint16_t BUFFER_SIZE>
 RingBuffer<BUFFER_SIZE>::RingBuffer(){
 	tail = 0;
 	head = 0;
@@ -37,7 +37,7 @@ RingBuffer<BUFFER_SIZE>::RingBuffer(){
 */
 
 //Read the next byte in buffer
-template <uint8_t BUFFER_SIZE>
+template <uint16_t BUFFER_SIZE>
 uint8_t RingBuffer<BUFFER_SIZE>::Read(){
 	if (Count() > 0)
 	{
@@ -52,7 +52,7 @@ uint8_t RingBuffer<BUFFER_SIZE>::Read(){
 }
 
 //Read next byte without incrementing pointers
-template <uint8_t BUFFER_SIZE>
+template <uint16_t BUFFER_SIZE>
 uint8_t RingBuffer<BUFFER_SIZE>::Peek(){
 	uint8_t tempTail = tail + 1;
 	
@@ -65,7 +65,7 @@ uint8_t RingBuffer<BUFFER_SIZE>::Peek(){
 }
 
 //Write a byte to the buffer
-template <uint8_t BUFFER_SIZE>
+template <uint16_t BUFFER_SIZE>
 void RingBuffer<BUFFER_SIZE>::Write(uint8_t in){
 	if (Count() < length - 2)
 	{
@@ -81,7 +81,7 @@ void RingBuffer<BUFFER_SIZE>::Write(uint8_t in){
 }
 
 //Returns how many elements are in the buffer
-template <uint8_t BUFFER_SIZE>
+template <uint16_t BUFFER_SIZE>
 uint8_t RingBuffer<BUFFER_SIZE>::Count(){
 	//Compensate for overflows
 	if (head >= tail)
@@ -93,7 +93,7 @@ uint8_t RingBuffer<BUFFER_SIZE>::Count(){
 }
 
 //Resets buffer
-template <uint8_t BUFFER_SIZE>
+template <uint16_t BUFFER_SIZE>
 void RingBuffer<BUFFER_SIZE>::Flush(){
 	tail = 0;
 	head = 0;
