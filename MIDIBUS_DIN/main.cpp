@@ -236,7 +236,7 @@ uint8_t Get_Group(){
 	temp = ((group & 0b1100) >> 2)|((group & 0b0011) << 2);
 	group = ((temp & 0b1010) >> 1)|((temp & 0b0101) << 1);
 	group = ~group;
-	return group;
+	return group & 0x0f;
 }
 
 void SERCOM0_Handler(){
