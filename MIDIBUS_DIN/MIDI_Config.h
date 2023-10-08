@@ -14,7 +14,7 @@
 
 // Define CAN filters
 // Regular input. match utility, real-time, MIDI 1.0, and sysex messages with non-extended ID
-CAN_Filter_t CAN_FLT0 = {
+const CAN_Filter_t CAN_FLT0 = {
 	.enabled = true,
 	.fifoDestination = 1,
 	.extendedID = false,
@@ -24,17 +24,17 @@ CAN_Filter_t CAN_FLT0 = {
 };
 
 // Regular input. match MIDI 2.0 channel messages with non-extended ID
-//CAN_Filter_t CAN_FLT1 = {
-//	.enabled = true,
-//	.fifoDestination = 1,
-//	.extendedID = false,
-//	.ID = 0b10000000000,
-//	.matchBothIDTypes = false,
-//	.maskID = 0b11110000000
-//};
+const CAN_Filter_t CAN_FLT1 = {
+	.enabled = true,
+	.fifoDestination = 1,
+	.extendedID = false,
+	.ID = 0b10000000000,
+	.matchBothIDTypes = false,
+	.maskID = 0b11110000000
+};
 
 // Targeted input. match CAN id with extended ID
-CAN_Filter_t CAN_FLT2 = {
+const CAN_Filter_t CAN_FLT2 = {
 	.enabled = true,
 	.fifoDestination = 1,
 	.extendedID = true,
@@ -44,10 +44,11 @@ CAN_Filter_t CAN_FLT2 = {
 };
 
 // Define FIFO configurations
-CAN_FIFO_t CAN_FIFO1 = {
+// Rx FIFO
+const CAN_FIFO_t CAN_FIFO1 = {
 	.enabled = true,
-	.payloadSize = 16,
-	.fifoDepth = 31,
+	.payloadSize = 64,	// Rx message is 12B + payload
+	.fifoDepth = 18,	// 1368B
 	.retransmitAttempt = CAN_FIFO_t::unlimited,
 	.messagePriority = 0,
 	.txEnable = false,
@@ -60,10 +61,11 @@ CAN_FIFO_t CAN_FIFO1 = {
 	.notFullEmptyInterrupt = true
 };
 
-CAN_FIFO_t CAN_FIFO2 = {
+// Tx FIFO
+const CAN_FIFO_t CAN_FIFO2 = {
 	.enabled = true,
-	.payloadSize = 16,
-	.fifoDepth = 31,
+	.payloadSize = 64,	// Tx message is 8B + payload
+	.fifoDepth = 8,		// Total tx size = 576B
 	.retransmitAttempt = CAN_FIFO_t::unlimited,
 	.messagePriority = 0,
 	.txEnable = true,

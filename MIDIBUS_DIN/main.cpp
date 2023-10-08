@@ -23,6 +23,7 @@ uint32_t midiID;
 bool rerollID = false;
 
 void Receive_CAN(CAN_Rx_msg_t* msg);
+void Receive_CAN_Payload(char* data, uint8_t length);
 void Check_CAN_Int();
 
 void MIDI_CAN_Handler(MIDI_UMP_t* msg);
@@ -67,20 +68,25 @@ int main(void)
 	// Switch on A19
 	PORT->Group[0].PINCFG[19].bit.INEN = 1;	
 	
-	// Randomize ID
-	midiID = rand();
-	CAN_FLT2.ID = midiID & 0x7F;
-	
 	UART_Init();
-	CAN.Init(CAN_CONF);
-	CAN.Set_Rx_Callback(Receive_CAN);
 	RTC_Init();
+	
+	NVIC_EnableIRQ(SERCOM0_IRQn);
+	system_interrupt_enable_global();
 	
 	canMIDI.Set_handler(MIDI_CAN_Handler);
 	dinMIDI.Set_handler(MIDI_DIN_Handler);
 	
-	NVIC_EnableIRQ(SERCOM0_IRQn);
-	system_interrupt_enable_global();
+	// Randomize ID
+	midiID = rand();
+	
+	CAN.Set_Rx_Header_Callback(Receive_CAN);
+	CAN.Set_Rx_Data_Callback(Receive_CAN_Payload);
+	CAN.Init(CAN_CONF);
+	// Set randomized ID
+	CAN_Filter_t tempFilt = CAN_FLT2;
+	tempFilt.ID = midiID & 0x7F;
+	CAN.Reconfigure_Filter(&tempFilt, 2);
 	
     while (1) {
 		while (rx_buff.Count() > 0){
@@ -89,13 +95,14 @@ int main(void)
 		}
 		
 		if (rerollID){
+			CAN_Filter_t tempFilt = CAN_FLT2;
 			rerollID = false;
-			CAN_FLT2.ID = midiID & 0x7F;
-			CAN.Reconfigure_Filters(1 << 2);
+			tempFilt.ID = midiID & 0x7F;
+			CAN.Reconfigure_Filter(&tempFilt, 2);
 		}
 		
 		if (CAN.Ready()){
-			Check_CAN_Int();
+			Check_CAN_Int();	// TODO: Skip if ringbuffer doesn't have space for max frame
 		}
 		
 		static uint32_t periodic_timer = 0;
@@ -121,7 +128,10 @@ void Receive_CAN(CAN_Rx_msg_t* msg){
 		rerollID = true;
 		midiID = rand();
 	}
-	canMIDI.Decode(msg->payload, length);
+}
+
+void Receive_CAN_Payload(char* data, uint8_t length){
+	canMIDI.Decode(data, length);
 }
 
 void MIDI_CAN_Handler(MIDI_UMP_t* msg){
@@ -165,7 +175,8 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	outMsg.dataLengthCode = CAN.Get_DLC(length);
 	outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::Voice1) << 7);
 	outMsg.payload = buff;
-	CAN.Transmit_Message(&outMsg, 2);
+	CAN.Write_Message(&outMsg, 2);
+	CAN.Send_Message();
 	
 	// Thru switch
 	if ( !(PORT->Group[0].IN.reg & (1 << 19)) ){
