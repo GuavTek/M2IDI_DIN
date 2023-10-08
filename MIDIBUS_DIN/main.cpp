@@ -25,8 +25,8 @@ bool rerollID = false;
 void Receive_CAN(CAN_Rx_msg_t* msg);
 void Check_CAN_Int();
 
-void MIDI_CAN_Handler(MIDI1_msg_t* msg);
-void MIDI_DIN_Handler(MIDI1_msg_t* msg);
+void MIDI_CAN_Handler(MIDI_UMP_t* msg);
+void MIDI_DIN_Handler(MIDI_UMP_t* msg);
 
 uint8_t Get_Group();
 
@@ -124,18 +124,23 @@ void Receive_CAN(CAN_Rx_msg_t* msg){
 	canMIDI.Decode(msg->payload, length);
 }
 
-void MIDI_CAN_Handler(MIDI1_msg_t* msg){
+void MIDI_CAN_Handler(MIDI_UMP_t* msg){
 	// Check if MIDI group matches
-	if (msg->group != Get_Group()){
+	if (msg->voice1.group != Get_Group()){
+		return;
+	}
+	
+	char buff[8];
+	uint8_t length = 0;
+	// Convert to byte stream
+	length = canMIDI.Encode(buff, msg, 1);
+	
+	if (length == 0){
 		return;
 	}
 	
 	// DIN output Activity LED
 	port_pin_set_output_level(17, 1);
-	
-	char buff[4];
-	// Convert to byte stream
-	uint8_t length = canMIDI.Encode(buff, msg, 1);
 	
 	// Add to uart tx buffer, should maybe have overflow protection?
 	for (uint8_t i = 0; i < length; i++){
@@ -146,13 +151,13 @@ void MIDI_CAN_Handler(MIDI1_msg_t* msg){
 	SERCOM2->USART.INTENSET.reg = SERCOM_USART_INTENSET_DRE;
 }
 
-// TODO: add support for realtime and data64
-void MIDI_DIN_Handler(MIDI1_msg_t* msg){
+// TODO: Collect multiple sysex messages in the same CAN frame
+void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	// DIN input activity LED
 	port_pin_set_output_level(21, 1);
-	char buff[4];
+	char buff[8];
 	// Convert to byte stream
-	msg->group = Get_Group();
+	msg->voice1.group = Get_Group();
 	uint8_t length = dinMIDI.Encode(buff, msg, 2);
 	
 	// Send CAN message
