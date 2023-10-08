@@ -34,7 +34,7 @@ uint8_t Get_Group();
 #define UART_BAUDRATE 31250
 #define UART_BAUD_VAL 8000000/(16 * UART_BAUDRATE)
 void UART_Init();
-RingBuffer<250> tx_buff;
+RingBuffer<128> tx_buff;
 RingBuffer<32> rx_buff;
 
 void RTC_Init();
