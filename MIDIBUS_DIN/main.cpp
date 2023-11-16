@@ -75,7 +75,10 @@ int main(void)
 	system_interrupt_enable_global();
 	
 	canMIDI.Set_handler(MIDI_CAN_Handler);
+	canMIDI.Set_channel_mask(0xffff);
 	dinMIDI.Set_handler(MIDI_DIN_Handler);
+	dinMIDI.Set_channel_mask(0xffff);
+	dinMIDI.Set_group_mask(0xffff);
 	
 	// Randomize ID
 	midiID = rand();
@@ -131,15 +134,11 @@ void Receive_CAN(CAN_Rx_msg_t* msg){
 }
 
 void Receive_CAN_Payload(char* data, uint8_t length){
+	canMIDI.Set_group_mask(1 << Get_Group());
 	canMIDI.Decode(data, length);
 }
 
 void MIDI_CAN_Handler(MIDI_UMP_t* msg){
-	// Check if MIDI group matches
-	if (msg->voice1.group != Get_Group()){
-		return;
-	}
-	
 	char buff[8];
 	uint8_t length = 0;
 	// Convert to byte stream
