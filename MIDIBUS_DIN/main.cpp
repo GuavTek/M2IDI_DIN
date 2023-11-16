@@ -169,14 +169,19 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	msg->voice1.group = Get_Group();
 	uint8_t length = dinMIDI.Encode(buff, msg, 2);
 	
-	// Send CAN message
-	CAN_Tx_msg_t outMsg;
-	outMsg.dataLengthCode = CAN.Get_DLC(length);
-	outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::Voice1) << 7);
-	outMsg.payload = buff;
-	CAN.Write_Message(&outMsg, 2);
 	if (msg->type == MIDI_MT_E::Data64){
 		static int8_t numBytes = 0;
+		if (numBytes == 0){
+			// Send first UMP
+			CAN_Tx_msg_t outMsg;
+			outMsg.dataLengthCode = CAN.Get_DLC(length);
+			outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::Data64) << 7);
+			outMsg.payload = buff;
+			outMsg.bitrateSwitch = true;
+			CAN.Write_Message(&outMsg, 2);
+		} else {
+			CAN.Append_Payload(buff, length);
+		}
 		numBytes += length;
 		if (msg->data64.status == MIDI2_DATA64_E::Single){
 			CAN.Send_Message();
@@ -189,6 +194,12 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 			numBytes = 0;
 		}
 	} else {
+		// Send CAN message
+		CAN_Tx_msg_t outMsg;
+		outMsg.dataLengthCode = CAN.Get_DLC(length);
+		outMsg.id = (midiID & 0x7F)|(int(msg->type) << 7);
+		outMsg.payload = buff;
+		CAN.Write_Message(&outMsg, 2);
 		CAN.Send_Message();
 	}
 	
