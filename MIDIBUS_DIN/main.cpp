@@ -161,7 +161,6 @@ void MIDI_CAN_Handler(MIDI_UMP_t* msg){
 	SERCOM2->USART.INTENSET.reg = SERCOM_USART_INTENSET_DRE;
 }
 
-// TODO: Collect multiple sysex messages in the same CAN frame
 void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	// DIN input activity LED
 	port_pin_set_output_level(21, 1);
@@ -176,7 +175,22 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::Voice1) << 7);
 	outMsg.payload = buff;
 	CAN.Write_Message(&outMsg, 2);
-	CAN.Send_Message();
+	if (msg->type == MIDI_MT_E::Data64){
+		static int8_t numBytes = 0;
+		numBytes += length;
+		if (msg->data64.status == MIDI2_DATA64_E::Single){
+			CAN.Send_Message();
+			numBytes = 0;
+		} else if (msg->data64.status == MIDI2_DATA64_E::End){
+			CAN.Send_Message();
+			numBytes = 0;
+		} else if (numBytes > 56){
+			CAN.Send_Message();
+			numBytes = 0;
+		}
+	} else {
+		CAN.Send_Message();
+	}
 	
 	// Thru switch
 	if ( !(PORT->Group[0].IN.reg & (1 << 19)) ){
