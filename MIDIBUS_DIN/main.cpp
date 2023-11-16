@@ -104,8 +104,9 @@ int main(void)
 			CAN.Reconfigure_Filter(&tempFilt, 2);
 		}
 		
-		if (CAN.Ready()){
-			Check_CAN_Int();	// TODO: Skip if ringbuffer doesn't have space for max frame
+		if (CAN.Ready() && (tx_buff.Count() <= 64)){
+			// Try to fetch data if buffer has room for largest possible frame
+			Check_CAN_Int();
 		}
 		
 		static uint32_t periodic_timer = 0;
