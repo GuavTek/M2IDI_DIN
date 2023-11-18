@@ -36,6 +36,8 @@ uint8_t Get_Group();
 void UART_Init();
 RingBuffer<128> tx_buff;
 RingBuffer<32> rx_buff;
+bool hasLost = false;
+MIDI_UMP_t lostMsg;
 
 void RTC_Init();
 
@@ -104,9 +106,14 @@ int main(void)
 			CAN.Reconfigure_Filter(&tempFilt, 2);
 		}
 		
-		if (CAN.Ready() && (tx_buff.Count() <= 64)){
-			// Try to fetch data if buffer has room for largest possible frame
-			Check_CAN_Int();
+		if (CAN.Ready()){
+			if (hasLost){
+				// Send realtime message which stalled due to sysex
+				MIDI_DIN_Handler(&lostMsg);
+			} else if (tx_buff.Count() <= 64){
+				// Try to fetch data if buffer has room for largest possible frame
+				Check_CAN_Int();
+			}
 		}
 		
 		static uint32_t periodic_timer = 0;
@@ -162,6 +169,7 @@ void MIDI_CAN_Handler(MIDI_UMP_t* msg){
 }
 
 void MIDI_DIN_Handler(MIDI_UMP_t* msg){
+	static int8_t numBytes = 0;
 	// DIN input activity LED
 	port_pin_set_output_level(21, 1);
 	char buff[8];
@@ -170,7 +178,6 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	uint8_t length = dinMIDI.Encode(buff, msg, 2);
 	
 	if (msg->type == MIDI_MT_E::Data64){
-		static int8_t numBytes = 0;
 		if (numBytes == 0){
 			// Send first UMP
 			CAN_Tx_msg_t outMsg;
@@ -193,6 +200,23 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 			CAN.Send_Message();
 			numBytes = 0;
 		}
+	} else if (msg->type == MIDI_MT_E::RealTime){
+		if (numBytes != 0){
+			// In the middle of sysex
+			CAN.Send_Message();
+			numBytes = 0;
+			lostMsg = *msg;
+			hasLost = true;
+			return;	// Return later
+		} else {
+			// Send CAN message
+			CAN_Tx_msg_t outMsg;
+			outMsg.dataLengthCode = CAN.Get_DLC(length);
+			outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::RealTime) << 7);
+			outMsg.payload = buff;
+			CAN.Write_Message(&outMsg, 2);
+			CAN.Send_Message();
+		}
 	} else {
 		// Send CAN message
 		CAN_Tx_msg_t outMsg;
@@ -207,6 +231,7 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	if ( !(PORT->Group[0].IN.reg & (1 << 19)) ){
 		MIDI_CAN_Handler(msg);
 	}
+	hasLost = false;
 }
 
 void UART_Init(){
