@@ -19,8 +19,8 @@ MCP2517_C CAN(&SPI, 0);
 MIDI_C canMIDI(2);
 MIDI_C dinMIDI(1);
 
+uint8_t midiGroup;
 uint32_t midiID;
-bool rerollID = false;
 
 void Receive_CAN(CAN_Rx_msg_t* msg);
 void Receive_CAN_Payload(char* data, uint8_t length);
@@ -84,6 +84,7 @@ int main(void)
 	
 	// Randomize ID
 	midiID = rand();
+	midiGroup = 0;
 	
 	CAN.Set_Rx_Header_Callback(Receive_CAN);
 	CAN.Set_Rx_Data_Callback(Receive_CAN_Payload);
@@ -99,11 +100,11 @@ int main(void)
 			dinMIDI.Decode(&temp, 1);
 		}
 		
-		if (rerollID){
-			CAN_Filter_t tempFilt = CAN_FLT2;
-			rerollID = false;
-			tempFilt.ID = midiID & 0x7F;
-			CAN.Reconfigure_Filter(&tempFilt, 2);
+		if (midiGroup != Get_Group()){
+			midiGroup = Get_Group();
+			CAN_Filter_t tempFilt = CAN_FLT0;
+			tempFilt.ID = (midiGroup & 0xF) << 7;
+			CAN.Reconfigure_Filter(&tempFilt, 0);
 		}
 		
 		if (CAN.Ready()){
@@ -134,15 +135,13 @@ void Check_CAN_Int(){
 
 void Receive_CAN(CAN_Rx_msg_t* msg){
 	uint8_t length = CAN.Get_Data_Length(msg->dataLengthCode);
-	if (!msg->extendedID && ((msg->id & 0x7F) == (midiID & 0x7F))){
+	if ((msg->id & 0x7F) == (midiID & 0x7F)){
 		// Received a message using the same ID. Reconfigure.
-		rerollID = true;
 		midiID = rand();
 	}
 }
 
 void Receive_CAN_Payload(char* data, uint8_t length){
-	canMIDI.Set_group_mask(1 << Get_Group());
 	canMIDI.Decode(data, length);
 }
 
@@ -168,6 +167,7 @@ void MIDI_CAN_Handler(MIDI_UMP_t* msg){
 	SERCOM2->USART.INTENSET.reg = SERCOM_USART_INTENSET_DRE;
 }
 
+// TODO: Handle cases where CAN controller memory is full?
 void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	static int8_t numBytes = 0;
 	// DIN input activity LED
@@ -177,19 +177,21 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 	msg->voice1.group = Get_Group();
 	uint8_t length = dinMIDI.Encode(buff, msg, 2);
 	
+	if (numBytes == 0){
+		// Send first UMP
+		CAN_Tx_msg_t outMsg;
+		outMsg.dataLengthCode = CAN.Get_DLC(length);
+		outMsg.id = (midiID & 0x7F)|(int(msg->voice1.group) << 7);
+		outMsg.payload = buff;
+		outMsg.bitrateSwitch = true;
+		CAN.Write_Message(&outMsg, 2);
+	} else {
+		CAN.Append_Payload(buff, length);
+	}
+	numBytes += length;
+	
 	if (msg->type == MIDI_MT_E::Data64){
-		if (numBytes == 0){
-			// Send first UMP
-			CAN_Tx_msg_t outMsg;
-			outMsg.dataLengthCode = CAN.Get_DLC(length);
-			outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::Data64) << 7);
-			outMsg.payload = buff;
-			outMsg.bitrateSwitch = true;
-			CAN.Write_Message(&outMsg, 2);
-		} else {
-			CAN.Append_Payload(buff, length);
-		}
-		numBytes += length;
+		// Collect Sysex sub-packets
 		if (msg->data64.status == MIDI2_DATA64_E::Single){
 			CAN.Send_Message();
 			numBytes = 0;
@@ -200,31 +202,10 @@ void MIDI_DIN_Handler(MIDI_UMP_t* msg){
 			CAN.Send_Message();
 			numBytes = 0;
 		}
-	} else if (msg->type == MIDI_MT_E::RealTime){
-		if (numBytes != 0){
-			// In the middle of sysex
-			CAN.Send_Message();
-			numBytes = 0;
-			lostMsg = *msg;
-			hasLost = true;
-			return;	// Return later
-		} else {
-			// Send CAN message
-			CAN_Tx_msg_t outMsg;
-			outMsg.dataLengthCode = CAN.Get_DLC(length);
-			outMsg.id = (midiID & 0x7F)|(int(MIDI_MT_E::RealTime) << 7);
-			outMsg.payload = buff;
-			CAN.Write_Message(&outMsg, 2);
-			CAN.Send_Message();
-		}
 	} else {
 		// Send CAN message
-		CAN_Tx_msg_t outMsg;
-		outMsg.dataLengthCode = CAN.Get_DLC(length);
-		outMsg.id = (midiID & 0x7F)|(int(msg->type) << 7);
-		outMsg.payload = buff;
-		CAN.Write_Message(&outMsg, 2);
 		CAN.Send_Message();
+		numBytes = 0;
 	}
 	
 	// Thru switch
