@@ -13,8 +13,8 @@
 #include "MIDI_Config.h"
 #include "RingBuffer.h"
 
-SPI_SAMD_C SPI(SERCOM0);
-MCP2517_C CAN(&SPI);
+SPI_SAMD_C SPI(SERCOM0, 1);
+MCP2517_C CAN(&SPI, 0);
 
 MIDI_C canMIDI(2);
 MIDI_C dinMIDI(1);

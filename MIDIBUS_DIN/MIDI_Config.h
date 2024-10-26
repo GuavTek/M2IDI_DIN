@@ -87,12 +87,10 @@ const spi_config_t SPI_CONF = {
 	.pinmux_mosi = PINMUX_PA10C_SERCOM0_PAD2,
 	.pinmux_miso = PINMUX_PA08C_SERCOM0_PAD0,
 	.pinmux_sck = PINMUX_PA11C_SERCOM0_PAD3,
-	.num_cs = 1,
 	.pin_cs = {PIN_PA09}
 };
 
 const CAN_Config_t CAN_CONF = {
-	.comSlaveNum = 0,
 	.clkOutDiv = CAN_Config_t::clkOutDiv1,
 	.sysClkDiv = false,
 	.clkDisable = false,
